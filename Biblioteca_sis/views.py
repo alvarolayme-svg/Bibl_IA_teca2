@@ -9,12 +9,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from catalogo.forms import LibroForm
 from catalogo.models import Libro
-from prestamos.forms import PrestamoForm
 from prestamos.models import Multa, Notificacion, Prestamo, Reserva
 from prestamos.services import (
     ReglaPrestamoError,
     actualizar_sistema,
-    crear_prestamo,
+    autorizar_reserva,
     registrar_devolucion,
 )
 from usuarios.forms import RegistroEstudianteForm
@@ -123,16 +122,7 @@ def administrar_libros(request, libro_id=None):
 @administrador_requerido
 def administrar_prestamos(request):
     actualizar_sistema()
-    form = PrestamoForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        try:
-            prestamo = crear_prestamo(form.cleaned_data['usuario'], form.cleaned_data['libro'])
-            messages.success(request, f'Prestamo registrado. Fecha limite: {prestamo.fecha_limite:%d/%m/%Y}.')
-            return redirect('administrar_prestamos')
-        except ReglaPrestamoError as error:
-            form.add_error(None, str(error))
     return render(request, 'administrar_prestamos.html', {
-        'form': form,
         'prestamos': Prestamo.objects.select_related('usuario', 'libro').order_by('-fecha_prestamo'),
     })
 
@@ -169,13 +159,11 @@ def crear_reserva(request, libro_id):
         messages.error(request, 'Las reservas estan disponibles para estudiantes y docentes.')
         return redirect('catalogo')
     libro = get_object_or_404(Libro, pk=libro_id)
-    if libro.stock > 0:
-        messages.info(request, 'Este libro esta disponible. Solicita el prestamo en biblioteca.')
-    elif Reserva.objects.filter(usuario=request.user, libro=libro, estado='pendiente').exists():
+    if Reserva.objects.filter(usuario=request.user, libro=libro, estado='pendiente').exists():
         messages.info(request, 'Ya tienes una reserva pendiente para este libro.')
     else:
         Reserva.objects.create(usuario=request.user, libro=libro)
-        messages.success(request, 'Reserva registrada. Te avisaremos cuando haya un ejemplar disponible.')
+        messages.success(request, 'Solicitud enviada. La biblioteca debe autorizarla antes de registrar el prestamo.')
     return redirect('catalogo')
 
 
@@ -191,12 +179,24 @@ def reservas(request):
 
 @administrador_requerido
 def actualizar_reserva(request, reserva_id, accion):
-    if request.method != 'POST' or accion not in ('atendida', 'cancelada'):
+    if request.method != 'POST' or accion not in ('autorizar', 'rechazar'):
         return HttpResponseForbidden('Accion no permitida.')
     reserva = get_object_or_404(Reserva, pk=reserva_id)
-    reserva.estado = accion
-    reserva.save(update_fields=['estado'])
-    messages.success(request, f'Reserva marcada como {accion}.')
+    if reserva.estado != 'pendiente':
+        messages.info(request, 'Esta solicitud ya fue procesada.')
+    elif accion == 'autorizar':
+        try:
+            prestamo = autorizar_reserva(reserva)
+            messages.success(
+                request,
+                f'Solicitud autorizada. Prestamo registrado hasta el {prestamo.fecha_limite:%d/%m/%Y}.',
+            )
+        except ReglaPrestamoError as error:
+            messages.error(request, f'No se pudo autorizar la solicitud: {error}')
+    else:
+        reserva.estado = 'rechazada'
+        reserva.save(update_fields=['estado'])
+        messages.success(request, 'Solicitud rechazada.')
     return redirect('reservas')
 
 

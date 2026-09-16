@@ -39,7 +39,19 @@ def crear_prestamo(usuario, libro):
         libro=libro,
         fecha_limite=timezone.localdate() + timedelta(days=DIAS_PRESTAMO),
     )
-    Reserva.objects.filter(usuario=usuario, libro=libro, estado='pendiente').update(estado='atendida')
+    return prestamo
+
+
+@transaction.atomic
+def autorizar_reserva(reserva):
+    """Convierte una solicitud pendiente en un préstamo autorizado."""
+    reserva = Reserva.objects.select_for_update().select_related('usuario', 'libro').get(pk=reserva.pk)
+    if reserva.estado != 'pendiente':
+        raise ReglaPrestamoError('Esta solicitud ya fue procesada.')
+
+    prestamo = crear_prestamo(reserva.usuario, reserva.libro)
+    reserva.estado = 'autorizada'
+    reserva.save(update_fields=['estado'])
     return prestamo
 
 
@@ -63,7 +75,7 @@ def registrar_devolucion(prestamo):
     if primera_reserva:
         mensaje_reserva = (
             f'Hay un ejemplar disponible de {prestamo.libro.titulo}. '
-            'Acercate a biblioteca para solicitar tu prestamo.'
+            'Tu solicitud esta pendiente de autorizacion por la biblioteca.'
         )
         if not Notificacion.objects.filter(
             usuario=primera_reserva.usuario,

@@ -22,8 +22,8 @@ class Prestamo(models.Model):
 class Reserva(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
-        ('atendida', 'Atendida'),
-        ('cancelada', 'Cancelada'),
+        ('autorizada', 'Autorizada'),
+        ('rechazada', 'Rechazada'),
     ]
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     libro = models.ForeignKey(Libro, on_delete=models.CASCADE)

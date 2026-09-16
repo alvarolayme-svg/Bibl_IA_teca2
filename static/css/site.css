@@ -196,8 +196,8 @@ h1 em, .auth-aside em { color: var(--accent); font-family: var(--serif); font-we
 .initial-box, .book-mini { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; color: var(--accent-dark); background: #dbe7e5; font-size: 10px; font-weight: 900; }
 .book-mini { color: var(--surface); background: var(--accent); font-family: var(--serif); }
 .status { display: inline-flex; margin-left: auto; padding: 4px 7px; border: 1px solid currentColor; color: var(--ink-soft); font-size: 9px; font-weight: 800; line-height: 1; }
-.status-activo, .status-atendida { color: var(--mint); }
-.status-vencido, .status-cancelada { color: var(--danger); }
+.status-activo, .status-autorizada { color: var(--mint); }
+.status-vencido, .status-rechazada { color: var(--danger); }
 .status-devuelto { color: var(--accent); }
 .status-pendiente { color: var(--sand); }
 .bars { display: grid; gap: 17px; margin-top: 27px; }
